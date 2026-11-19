@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+out/
+*.egg-info/
+.pytest_cache/
+.DS_Store
+
+# Ingested scan files — may contain sensitive vulnerability data, never commit
+data/
