@@ -27,11 +27,29 @@ cp .env.example .env            # then fill in your inbox + app password
 `.env` holds inbox credentials and is **gitignored** — never commit it.
 
 ## Scripts
+- `scripts/ingest.py` — **the full Step 1 pipeline**: find → fetch → validate → store, with idempotency. Run it with `python scripts/ingest.py`.
 - `scripts/check_inbox.py` — connection test: prints the last few inbox emails.
 - `scripts/send_test_scan.py` — dev-only helper: emails a sample scan to yourself so there is something to ingest.
 
+## How `ingest.py` works
+1. **Find** — searches the inbox (IMAP) for the newest email whose subject contains `TARGET_SUBJECT`.
+2. **Fetch** — downloads the `.xlsx` attachment into `data/raw/`, prefixed with a UTC timestamp so weekly scans never overwrite each other.
+3. **Validate** — opens the workbook and checks the sheet `Nessus Scan Data` exists with the 20 expected columns, in order.
+4. **Store** — a valid file is copied to `data/staging/`; a bad one to `data/quarantine/`.
+5. **Idempotency** — the email's `Message-ID` is recorded in `data/processed_ids.txt`, so re-running never ingests the same email twice.
+
+### Data layout (gitignored — may contain sensitive scan data)
+```
+data/
+├── raw/               # archive of every downloaded original
+├── staging/           # validated files, ready for the next stage
+├── quarantine/        # files that failed validation
+└── processed_ids.txt  # Message-IDs already ingested
+```
+
 ## Roadmap
-- `scripts/ingest.py` — the full Step 1 pipeline (find → fetch → validate → store). *In progress.*
+- Swap the Gmail/IMAP backend for **Microsoft Graph** (production GovCloud/Exchange inbox).
+- Schedule `ingest.py` to run automatically (e.g. weekly) instead of by hand.
 
 ## Config (`.env`)
 | Key | Meaning |
