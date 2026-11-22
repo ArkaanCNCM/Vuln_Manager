@@ -28,6 +28,7 @@ cp .env.example .env            # then fill in your inbox + app password
 
 ## Scripts
 - `scripts/ingest.py` — **the full Step 1 pipeline**: find → fetch → validate → store, with idempotency. Run it with `python scripts/ingest.py`.
+- `scripts/categorize.py` — **Step 2 (column work)**: reshapes the validated scan for the tracker. Run it with `python scripts/categorize.py` (after `ingest.py`).
 - `scripts/check_inbox.py` — connection test: prints the last few inbox emails.
 - `scripts/send_test_scan.py` — dev-only helper: emails a sample scan to yourself so there is something to ingest.
 
@@ -38,18 +39,31 @@ cp .env.example .env            # then fill in your inbox + app password
 4. **Store** — a valid file is copied to `data/staging/`; a bad one to `data/quarantine/`.
 5. **Idempotency** — the email's `Message-ID` is recorded in `data/processed_ids.txt`, so re-running never ingests the same email twice.
 
+## How `categorize.py` works (Step 2)
+Runs after `ingest.py`. It picks up the newest validated file from `data/staging/`,
+reshapes it for the tracker, and writes the result to `data/processed/`.
+1. **Drop columns** — removes six columns the tracker does not need: `Risk Factor`,
+   `CVSS V2 Base Score`, `Vuln Publication Date`, `Patch Publication Date`,
+   `Plugin Publication Date`, `Plugin Modification Date`.
+2. **Add `Age`** — computed in code as `Last Observed − First Discovered`, in whole days.
+3. **Add `System Environment`** — derived from the scan file's name (a `PROD` file → `DMS-Prod`, a `TEST` file → `DMS-Test`).
+4. **Add `Group`** — added as an empty column for now; its per-row value is assigned by a later (AI) categorization step.
+
 ### Data layout (gitignored — may contain sensitive scan data)
 ```
 data/
 ├── raw/               # archive of every downloaded original
 ├── staging/           # validated files, ready for the next stage
+├── processed/         # reshaped files (Step 2 output), ready for the tracker
 ├── quarantine/        # files that failed validation
 └── processed_ids.txt  # Message-IDs already ingested
 ```
 
 ## Roadmap
+- Fill the `Group` column with an AI categorization step.
+- Wire `ingest.py` → `categorize.py` to run together (one after the other).
 - Swap the Gmail/IMAP backend for **Microsoft Graph** (production GovCloud/Exchange inbox).
-- Schedule `ingest.py` to run automatically (e.g. weekly) instead of by hand.
+- Schedule the pipeline to run automatically (e.g. weekly) instead of by hand.
 
 ## Config (`.env`)
 | Key | Meaning |
